@@ -9,7 +9,8 @@
 		"./lib/CompressedJsonCollection.d.ts"
 	],
 	"scripts": {
-		"test": "./node_modules/mocha/bin/mocha ./lib/tst/"
+		"test": "./node_modules/mocha/bin/mocha ./lib/tst/",
+		"build": "./node_modules/typescript/bin/tsc"
 	},
 	"keywords": [
 		"json",
@@ -31,7 +32,8 @@
 		"@types/should": "^8.1.30",
 		"mocha": "^3.1.2",
 		"moment": "^2.15.2",
-		"should": "^11.1.1"
+		"should": "^11.1.1",
+		"typescript": "^2.0.8"
 	},
 	"repository": {
 		"type": "git",
