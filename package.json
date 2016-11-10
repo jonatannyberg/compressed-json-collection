@@ -1,0 +1,28 @@
+{
+  "name": "json-compressed-series",
+  "version": "1.0.0",
+  "description": "Losslessly compressed collections (i.e. arrays) of json objects with the posibility to actively interact with the compressed collection.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha ./lib/tst"
+  },
+  "keywords": [
+    "json",
+    "compression",
+    "array",
+    "list",
+    "object",
+    "lossless",
+    "javascript",
+    "typescript"
+  ],
+  "author": "Jonatan Nyberg",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/mocha": "^2.2.32",
+    "@types/should": "^8.1.30",
+    "mocha": "^3.1.2",
+    "moment": "^2.15.2",
+    "should": "^11.1.1"
+  }
+}
