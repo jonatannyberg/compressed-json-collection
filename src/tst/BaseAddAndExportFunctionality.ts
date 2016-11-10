@@ -1,6 +1,5 @@
 
 import 'mocha';
-import 'moment';
 import * as Should from 'should';
 import CompressedCollection from '../CompressedJsonCollection';
 import { EncodingType, ICompressedJsonCollectionFilter } from '../CompressedJsonCollection';

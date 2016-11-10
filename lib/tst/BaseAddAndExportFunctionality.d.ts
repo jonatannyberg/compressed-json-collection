@@ -1,2 +1,1 @@
 import 'mocha';
-import 'moment';

@@ -374,8 +374,6 @@ export default class CompressedJsonCollection<T> {
 
 		const p = f !== 1 ? Math.round(prev * f) : prev;
 
-		console.log(def.factor)
-		console.log(c - p)
 		return c - p;
 	};
 

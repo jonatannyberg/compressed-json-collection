@@ -1,12 +1,12 @@
 {
 	"name": "compressed-json-collection",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "A compressed JSON collection used to manage and cache large sets of similar JSON objects for sending over HTTP(S), WebSockets or similar.",
 	"main": "lib/CompressedJsonCollection.js",
 	"typings": "lib/CompressedJsonCollection.d.ts",
 	"files": [
-		"./lib/CompressedJsonCollection.js",
-		"./lib/CompressedJsonCollection.d.ts"
+		"lib/CompressedJsonCollection.js",
+		"lib/CompressedJsonCollection.d.ts"
 	],
 	"scripts": {
 		"test": "./node_modules/mocha/bin/mocha ./lib/tst/",
@@ -19,8 +19,8 @@
 		"list",
 		"collection",
 		"lossless",
-		"javascript",
-		"typescript"
+		"typescript",
+		"cache"
 	],
 	"author": {
 		"name": "Jonatan Nyberg",
@@ -31,7 +31,6 @@
 		"@types/mocha": "^2.2.32",
 		"@types/should": "^8.1.30",
 		"mocha": "^3.1.2",
-		"moment": "^2.15.2",
 		"should": "^11.1.1",
 		"typescript": "^2.0.8"
 	},
