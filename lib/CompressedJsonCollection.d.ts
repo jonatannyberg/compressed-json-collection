@@ -62,7 +62,7 @@ export default class CompressedJsonCollection<T> {
     clear(): void;
     filter(selector: (item: T, index: number, array: T[]) => boolean): CompressedJsonCollection<T>;
     query(selector: (item: T, index: number, array: T[]) => boolean): ICompressedJsonCollectionState;
-    static decompress<T>(state: ICompressedJsonCollectionState): T[];
+    static decompress<T>(state: ICompressedJsonCollectionState, transform?: (state: ICompressedJsonCollectionState, item: T) => T): T[];
     private internalAdd;
     private internalOrderedAdd;
     private static _dateDiff;

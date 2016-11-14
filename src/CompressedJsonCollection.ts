@@ -261,7 +261,7 @@ export default class CompressedJsonCollection<T> {
 		return newState;
 	}
 
-	public static decompress<T>(state: ICompressedJsonCollectionState): T[] {
+	public static decompress<T>(state: ICompressedJsonCollectionState, transform?: (state: ICompressedJsonCollectionState, item: T) => T): T[] {
 
 		const items: T[] = [];
 		const itemCount = state.data.length;
@@ -308,7 +308,10 @@ export default class CompressedJsonCollection<T> {
 			}
 		}
 
-		return items;
+		if (transform == null)
+			return items;
+		else
+			return items.map(item => transform(state, item));
 	}
 
 	private internalAdd = (item: T) => {
