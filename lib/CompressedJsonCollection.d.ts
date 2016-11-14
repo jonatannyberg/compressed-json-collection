@@ -38,11 +38,11 @@ export interface ICompressedJsonCollectionState {
         value: BaseParameter;
     } | BaseParameter)[][];
 }
-export interface ICompressedJsonCollectionFilter<T> {
+export interface ICompressedJsonCollectionHandler<T> {
     insert(items: T[], collection: CompressedJsonCollection<T>): T[];
 }
 export interface ICompressedJsonCollectionDefinition<T> {
-    insertionHandler?: ((item: T, index: number, array: T[]) => boolean) | ICompressedJsonCollectionFilter<T>;
+    insertionHandler?: ((item: T, index: number, array: T[]) => boolean) | ICompressedJsonCollectionHandler<T>;
     sort?: (itemA: T, itemB: T) => -1 | 0 | 1;
     properties: {
         [key: string]: EncodingDefinition;
@@ -58,7 +58,8 @@ export default class CompressedJsonCollection<T> {
     constructor(definition: ICompressedJsonCollectionDefinition<T>, items?: T[]);
     add(items: T | T[]): void;
     remove(items: T | T[]): void;
-    concat(collection: CompressedJsonCollection<T>): CompressedJsonCollection<T>;
+    removeByIndex(index: number, to?: number): void;
+    clear(): void;
     filter(selector: (item: T, index: number, array: T[]) => boolean): CompressedJsonCollection<T>;
     query(selector: (item: T, index: number, array: T[]) => boolean): ICompressedJsonCollectionState;
     static decompress<T>(state: ICompressedJsonCollectionState): T[];

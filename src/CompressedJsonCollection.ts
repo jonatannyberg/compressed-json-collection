@@ -32,12 +32,12 @@ export interface ICompressedJsonCollectionState {
 	runlengthData: ({ count: number, value: BaseParameter } | BaseParameter)[][];
 }
 
-export interface ICompressedJsonCollectionFilter<T> {
+export interface ICompressedJsonCollectionHandler<T> {
 	insert(items: T[], collection: CompressedJsonCollection<T>): T[];
 }
 
 export interface ICompressedJsonCollectionDefinition<T> {
-	insertionHandler?: ((item: T, index: number, array: T[]) => boolean) | ICompressedJsonCollectionFilter<T>;
+	insertionHandler?: ((item: T, index: number, array: T[]) => boolean) | ICompressedJsonCollectionHandler<T>;
 	sort?: (itemA: T, itemB: T) => -1 | 0 | 1;
 	properties: { [key: string]: EncodingDefinition };
 }
@@ -65,40 +65,48 @@ export default class CompressedJsonCollection<T> {
 		if (this._definition.sort != null)
 			items.sort(this._definition.sort);
 
-		let filter = this._definition.insertionHandler;
-		let itemsToAdd: T[];
-		if (filter != null && typeof filter === 'object')
-			itemsToAdd = (filter as ICompressedJsonCollectionFilter<T>).insert(items, this);
-		else
-			itemsToAdd = filter == null ? items : items.filter(filter as (item: T, index: number, array: T[]) => boolean);
+		const filter = this._definition.insertionHandler;
+		const itemsToAdd = filter != null && typeof filter === 'object'
+			? (filter as ICompressedJsonCollectionHandler<T>).insert(items, this)
+			: (filter == null ? items : items.filter(filter as (item: T, index: number, array: T[]) => boolean));
 
 		const add = this._definition.sort != null ? this.internalOrderedAdd : this.internalAdd;
-
-		for (const item of itemsToAdd) add(item);
+		itemsToAdd.forEach(item => add(item));
 	}
 
 	public remove(items: T | T[]): void {
+		(Array.isArray(items) ? items : [items])
+			.map(item => this.items.indexOf(item))
+			.sort((a, b) => a > b ? -1 : a < b ? 1 : 0)
+			.filter(idx => idx != -1)
+			.forEach(item => this.removeByIndex(item));
+	}
 
-		items = Array.isArray(items) ? items : [items];
+	public removeByIndex(index: number, to?: number) {
+		if (to != null && index > to) throw new Error(`CompressedJsonCollection.removeByIndex: 'index' can not be greater than 'to'.`);
+		if (index > this.items.length - 1) throw new Error(`Index 'index' is out of bounds.`);
+		if (to != null && to > this.items.length - 1) throw new Error(`Index 'to' is out of bounds.`)
 
-		for (const item of items) {
-			const idxToRemove = this.items.indexOf(item);
-			if (idxToRemove == -1)
-				continue;
+
+		if (to == null) {
+			const idxToRemove = index;
+			const item = this.items[idxToRemove];
 
 			this.items.splice(idxToRemove, 1);
 
 			const state = this._state;
 
 			state.data.splice(idxToRemove, 1);
+			if (this.items[idxToRemove] != null)
+				state.data[idxToRemove] = CompressedJsonCollection.diffEncode(this.items[idxToRemove], this.items[idxToRemove - 1], this._state);
 
 			// Update runlength encodings
 			for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
 
 				const rlItems = state.runlengthData[def.dataIndex];
-				const newVal = item[def.parameter];
+				const removedVal = item[def.parameter];
 
-				// find item affected by run length insert
+				// find item affected by removal
 				let itemStartIdx = 0;
 				let currRlItemIdx = 0;
 				while (true) {
@@ -116,17 +124,105 @@ export default class CompressedJsonCollection<T> {
 
 				const currRlItem = rlItems[currRlItemIdx];
 
-				if (currRlItem instanceof Object && (<any>currRlItem).value === newVal)
-					(<{ value: BaseParameter, count: number }>currRlItem).count--
-				else if (currRlItem === newVal) {
+				if (currRlItem instanceof Object && (<any>currRlItem).value === removedVal) {
+					(<{ value: BaseParameter, count: number }>currRlItem).count--;
+					if ((<{ value: BaseParameter, count: number }>currRlItem).count == 1)
+						rlItems[currRlItemIdx] = (<{ value: BaseParameter, count: number }>currRlItem).value;
+				}
+				else if (currRlItem === removedVal) {
 					rlItems.splice(currRlItemIdx, 1);
 				}
 			}
+		} else {
+			const idxToRemove = index;
+			const state = this._state;
+
+			const removedItems = this.items.splice(idxToRemove, to - idxToRemove + 1);
+
+			state.data.splice(idxToRemove, to - idxToRemove + 1);
+			if (this.items[idxToRemove] != null)
+				state.data[idxToRemove] = CompressedJsonCollection.diffEncode(this.items[idxToRemove], this.items[idxToRemove - 1], this._state);
+
+			// Update runlength encodings
+			for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
+
+				// find first item to be affected by removal
+				const rlItems = state.runlengthData[def.dataIndex];
+				let itemStartIdx = 0;
+				let currRlItemIdx = 0;
+				while (true) {
+					const item = rlItems[currRlItemIdx];
+					let currItemCount = item instanceof Object ? (<{ value: BaseParameter, count: number }>item).count : 1;
+					if (itemStartIdx + currItemCount > idxToRemove) { break; }
+					itemStartIdx += currItemCount;
+					currRlItemIdx++;
+				}
+
+				let itemCountToRemove = removedItems.length;
+
+				const currRlItem = rlItems[currRlItemIdx];
+
+				if (typeof currRlItem === 'object') {
+
+					const item = (<{ value: BaseParameter, count: number }>currRlItem);
+
+					if (item.count - (idxToRemove - itemStartIdx) > itemCountToRemove) {
+						item.count = item.count + (idxToRemove - itemStartIdx) - itemCountToRemove;
+						if (item.count == 1)
+							rlItems[currRlItemIdx] = item.value;
+						itemCountToRemove = 0;
+					}
+					else if (item.count - (idxToRemove - itemStartIdx) == itemCountToRemove) {
+						rlItems.splice(currRlItemIdx, 1);
+						itemCountToRemove = 0;
+					}
+					else {
+						item.count = item.count - (idxToRemove - itemStartIdx);
+						itemCountToRemove -= (idxToRemove - itemStartIdx);
+						if (item.count == 1)
+							rlItems[currRlItemIdx] = item.value;
+						currRlItemIdx++;
+					}
+				}
+				else {
+					rlItems.splice(currRlItemIdx, 1);
+					itemCountToRemove--;
+				}
+
+				while (itemCountToRemove > 0) {
+
+					const currRlItem = rlItems[currRlItemIdx];
+					if (typeof currRlItem === 'object') {
+						const item = (<{ value: BaseParameter, count: number }>currRlItem);
+
+						if (item.count > itemCountToRemove) {
+							item.count -= itemCountToRemove;
+							if (item.count == 1)
+								rlItems[currRlItemIdx] = item.value;
+							itemCountToRemove = 0;
+						}
+						else if (item.count == itemCountToRemove) {
+							rlItems.splice(currRlItemIdx, 1);
+							itemCountToRemove = 0;
+						}
+						else {
+							rlItems.splice(currRlItemIdx, 1);
+							itemCountToRemove -= item.count;
+						}
+					}
+					else {
+						rlItems.splice(currRlItemIdx, 1);
+						itemCountToRemove--;
+					}
+				}
+			}
 		}
+
 	}
 
-	public concat(collection: CompressedJsonCollection<T>): CompressedJsonCollection<T> {
-		throw new Error('Not implemented exception');
+	public clear(): void {
+		this._state = CompressedJsonCollection.createEmptyState(this._definition);
+		this._items = [];
 	}
 
 	public filter(selector: (item: T, index: number, array: T[]) => boolean): CompressedJsonCollection<T> {
@@ -238,7 +334,6 @@ export default class CompressedJsonCollection<T> {
 				diffEncode(item, null, this._state));
 			rlEncode(item, this._state);
 			items.push(item);
-			//console.log('add to empty: ', CompressedJsonCollection.decompress<T>(this._state), this._state.runlengthData);
 			return;
 		}
 
@@ -252,8 +347,6 @@ export default class CompressedJsonCollection<T> {
 			this._state.data.push(diffEncode(item, items[items.length - 1], this._state));
 			rlEncode(item, this._state);
 			items.push(item);
-
-			//console.log('add to end: ', CompressedJsonCollection.decompress<T>(this._state), this._state.runlengthData);
 			return;
 		}
 
@@ -283,8 +376,6 @@ export default class CompressedJsonCollection<T> {
 					(<any>state.runlengthData[def.dataIndex]).splice(0, 0, newVal);
 				}
 			}
-
-			//console.log('add to start: ', CompressedJsonCollection.decompress<T>(this._state), this._state.runlengthData);
 			return;
 		}
 
@@ -354,11 +445,6 @@ export default class CompressedJsonCollection<T> {
 				}
 			}
 		}
-		//console.log('add general: ', CompressedJsonCollection.decompress<T>(this._state), this._state.runlengthData);
-
-		//console.log('state: ', this._state.runlengthData);
-		//console.log('Insert idx: ', insertAtIdx);
-		//console.log('items: ', items);
 	}
 
 	private static _dateDiff = (curr: number, prev: number, def: KeyFrameDiffEncodingDefinition): number | { key: number } => {

@@ -2,7 +2,7 @@
 import 'mocha';
 import * as Should from 'should';
 import CompressedCollection from '../CompressedJsonCollection';
-import { EncodingType, ICompressedJsonCollectionFilter } from '../CompressedJsonCollection';
+import { EncodingType, ICompressedJsonCollectionHandler } from '../CompressedJsonCollection';
 
 describe('CompressedCollection basics', () => {
 
@@ -483,6 +483,357 @@ describe('CompressedCollection basics', () => {
 			done();
 		});
 
+	});
+
+	describe('encoding with combined encodings, remove items', () => {
+
+		it('empty collection, add one item, remove one item by reference', done => {
+			const definition = {
+				properties: {
+					something: { encoding: EncodingType.RAW },
+					state: { encoding: EncodingType.RUNLENGTH },
+					balance: { encoding: EncodingType.DIFF, decimalDigits: 2 }
+				}
+			};
+
+			const collection = new CompressedCollection(definition);
+
+			var item = { something: { name: 'Jane', id: 4321 }, state: 'OK', balance: 2000.02 };
+			collection.add(item);
+			collection.remove(item);
+
+			Should.equal(collection.items.length, 0, 'Item was not removed correctly');
+
+			done();
+		});
+
+		it('empty collection, add one item, remove one item by index', done => {
+			const definition = {
+				properties: {
+					something: { encoding: EncodingType.RAW },
+					state: { encoding: EncodingType.RUNLENGTH },
+					balance: { encoding: EncodingType.DIFF, decimalDigits: 2 }
+				}
+			};
+
+			const collection = new CompressedCollection(definition);
+
+			var item = { something: { name: 'Jane', id: 4321 }, state: 'OK', balance: 2000.02 };
+			collection.add(item);
+
+			collection.removeByIndex(0);
+
+			Should.equal(collection.items.length, 0, 'Item was not removed correctly');
+
+			done();
+		});
+
+
+		it('sorted collection with initial items, add one item, remove one item by reference', done => {
+			const item = { val: 3, rl: 'OK' };
+			const data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 4, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			collection.add(item);
+			collection.remove(item);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data, 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, add one item, remove one item by index', done => {
+			const item = { val: 3, rl: 'OK' };
+			const data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 4, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			collection.add(item);
+			collection.removeByIndex(collection.items.indexOf(item));
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data, 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove two items (not in sequence)', done => {
+			const item1 = { val: 1, rl: 'OK' };
+			const item2 = { val: 3, rl: 'OK' };
+			const data = [{ val: 0, rl: 'OK' }, item1, { val: 2, rl: 'OK' }, item2, { val: 4, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			collection.remove([item1, item2]);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item2), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+
+		it('sorted collection with initial items, remove two items (in sequence)', done => {
+			const item1 = { val: 1, rl: 'OK' };
+			const item2 = { val: 2, rl: 'OK' };
+			const data = [{ val: 0, rl: 'OK' }, item1, item2, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			collection.remove([item1, item2]);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item2), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove one item by index with decres object count (to 1) in object rl case', done => {
+			const item1 = { val: 1, rl: 'OK' };
+			const data = [{ val: 0, rl: 'OK' }, item1, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(collection.items.indexOf(item1));
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove two items (in sequence) by start and end index,  decres object count (to 0) in object rl case', done => {
+			const item0 = { val: 0, rl: 'OK' };
+			const item1 = { val: 1, rl: 'OK' };
+			const data = [item0, item1, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(0, 1);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item0), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove two items (in sequence) by start and end index, removes one item (none object) and decres object count (to 2) in object rl case', done => {
+			const item0 = { val: 0, rl: 'BAD' };
+			const item1 = { val: 1, rl: 'OK' };
+			const item2 = { val: 2, rl: 'OK' };
+			const data = [item0, item1, item2, { val: 3, rl: 'OK' }, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(0, 1);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item0 && item != item1), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove two items (in sequence) by start and end index, removes one item (none object) and decrese object count (to 1) in object rl case', done => {
+			const item0 = { val: 0, rl: 'BAD' };
+			const item1 = { val: 1, rl: 'OK' };
+			const item2 = { val: 2, rl: 'OK' };
+			const data = [item0, item1, item2, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(0, 1);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item0 && item != item1), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove two items (in sequence) by start and end index, decreses two object counts to 1', done => {
+			const item1 = { val: 1, rl: 'BAD' };
+			const item2 = { val: 2, rl: 'OK' };
+			const data = [{ val: 0, rl: 'BAD' }, item1, item2, { val: 3, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(1, 2);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item2), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove two items (in sequence) by start and end index, decreses one object count to 1 and removes one item', done => {
+			const item1 = { val: 1, rl: 'BAD' };
+			const item2 = { val: 2, rl: 'OK' };
+			const data = [{ val: 0, rl: 'BAD' }, item1, item2];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(1, 2);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item2), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove three items (in sequence) by start and end index, decreses two object counts to 1 and removes one item', done => {
+			const item1 = { val: 1, rl: 'BAD' };
+			const item2 = { val: 2, rl: 'OK' };
+			const item3 = { val: 3, rl: 'NOT OK' };;
+			const data = [{ val: 0, rl: 'BAD' }, item1, item2, item3, { val: 4, rl: 'NOT OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(1, 3);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item2 && item != item3), 'Decompressed data does not match source data.');
+
+			done();
+		});
+
+		it('sorted collection with initial items, remove items (in sequence) by index with varying cases in rl encoding', done => {
+			const item1 = { val: 1, rl: 'OK' };
+			const item2 = { val: 2, rl: 'NOT OK' };
+			const item3 = { val: 3, rl: 'NOT OK' };
+			const item4 = { val: 4, rl: 'OK' };
+			const item5 = { val: 5, rl: 'BAD' };
+			const data = [{ val: 0, rl: 'OK' }, item1, item2, item3, item4, item5, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
+			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+			const definition = {
+				sort: sort,
+				properties: {
+					val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
+					rl: { encoding: EncodingType.RUNLENGTH },
+				}
+			};
+
+			const collection = new CompressedCollection(definition, data);
+
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+			collection.removeByIndex(collection.items.indexOf(item1), collection.items.indexOf(item1) + 4);
+			//console.log('items: ', collection.items);
+			//console.log('rl compression: ', collection.compressedJson.runlengthData);
+
+			const decompressedItems = CompressedCollection.decompress(collection.compressedJson);
+			Should.deepEqual(decompressedItems, data.filter(item => item != item1 && item != item2 && item != item3 && item != item4 && item != item5), 'Decompressed data does not match source data.');
+
+			done();
+		});
 	});
 });
 
@@ -1226,7 +1577,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const data = [];
 				const definition = {
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val < 4);
 						};
@@ -1257,7 +1608,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const data = [];
 				const definition = {
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val > 4);
 						};
@@ -1286,7 +1637,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				type ItemType = { val: number, rl: string };
 				const definition = {
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val < 4);
 						};
@@ -1314,7 +1665,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				type ItemType = { val: number, rl: string };
 				const definition = {
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val > 4);
 						};
@@ -1342,7 +1693,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				type ItemType = { val: number, rl: string };
 				const definition = {
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val > 1);
 						};
@@ -1375,7 +1726,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const definition = {
 					sort: sort,
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val < 4);
 						};
@@ -1407,7 +1758,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const definition = {
 					sort: sort,
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val > 4);
 						};
@@ -1440,7 +1791,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const definition = {
 					sort: sort,
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val < 4);
 						};
@@ -1469,7 +1820,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const definition = {
 					sort: sort,
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val > 4);
 						};
@@ -1499,7 +1850,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				type ItemType = { val: number, rl: string };
 				const definition = {
 					sort: sort,
-					insertionHandler: new (class implements ICompressedJsonCollectionFilter<ItemType> {
+					insertionHandler: new (class implements ICompressedJsonCollectionHandler<ItemType> {
 						insert(items: ItemType[], collection: CompressedCollection<ItemType>): ItemType[] {
 							return items.filter(item => item.val > 1);
 						};
@@ -1530,7 +1881,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('buffered insertion handler', done => {
 
 				type ItemType = { val: number, rl: string, insertIdx: number };
-				const ItemBuffer = class implements ICompressedJsonCollectionFilter<ItemType> {
+				const ItemBuffer = class implements ICompressedJsonCollectionHandler<ItemType> {
 
 					public buffer: ItemType[] = [];
 
@@ -1595,7 +1946,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('handler that alters collection', done => {
 
 				type ItemType = { val: number, rl: string, insertIdx: number };
-				const InsertionHandler = class implements ICompressedJsonCollectionFilter<ItemType> {
+				const InsertionHandler = class implements ICompressedJsonCollectionHandler<ItemType> {
 
 					public buffer: ItemType[] = [];
 					private isAlteringInternal = false;
@@ -1680,7 +2031,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 
 				type GpsPosition = { lat: number, lon: number, time: Date };
 
-				const InsertionHandler = class implements ICompressedJsonCollectionFilter<GpsPosition> {
+				const InsertionHandler = class implements ICompressedJsonCollectionHandler<GpsPosition> {
 
 					public buffer: GpsPosition[] = [];
 					private isAlteringInternal = false;
@@ -1745,16 +2096,16 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 					}
 				};
 
-				const collection = new CompressedCollection<GpsPosition>(definition, data);
+				new CompressedCollection<GpsPosition>(definition, data);
 
-				const decompressedItems = CompressedCollection.decompress<GpsPosition>(collection.compressedJson);
-				console.log('Collection items: ', collection.items);
-				console.log('Collection state: ', collection.compressedJson);
-				console.log('Decompressed items: ', decompressedItems);
+				//const decompressedItems = CompressedCollection.decompress<GpsPosition>(collection.compressedJson);
+				//console.log('Collection items: ', collection.items);
+				//console.log('Collection state: ', collection.compressedJson);
+				//console.log('Decompressed items: ', decompressedItems);
 
-				const dataJson = JSON.stringify(data);
-				const compressedJson = JSON.stringify(collection.compressedJson);
-				console.log('Compression ratio (char count ): ', compressedJson.length, '/', dataJson.length, '=', compressedJson.length / dataJson.length);
+				//const dataJson = JSON.stringify(data);
+				//const compressedJson = JSON.stringify(collection.compressedJson);
+				//console.log('Compression ratio (char count ): ', compressedJson.length, '/', dataJson.length, '=', compressedJson.length / dataJson.length);
 
 				//Should.equal(collection.items.length, data.length, 'Collection contains wrong number of items.');
 
