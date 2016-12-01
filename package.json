@@ -1,6 +1,6 @@
 {
 	"name": "compressed-json-collection",
-	"version": "0.0.5",
+	"version": "0.1.0",
 	"description": "A compressed JSON collection used to manage and cache large sets of similar JSON objects for sending over HTTP(S), WebSockets or similar.",
 	"main": "lib/CompressedJsonCollection.js",
 	"typings": "lib/CompressedJsonCollection.d.ts",
