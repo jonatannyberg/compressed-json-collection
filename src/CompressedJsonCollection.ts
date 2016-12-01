@@ -37,7 +37,7 @@ export interface ICompressedJsonCollectionHandler<T> {
 }
 
 export interface ICompressedJsonCollectionDefinition<T> {
-	insertionHandler?: ((item: T, index: number, array: T[]) => boolean) | ICompressedJsonCollectionHandler<T>;
+	insertionHandler?: ((item: T) => boolean) | ICompressedJsonCollectionHandler<T>;
 	sort?: (itemA: T, itemB: T) => -1 | 0 | 1;
 	properties: { [key: string]: EncodingDefinition };
 }
@@ -68,7 +68,7 @@ export default class CompressedJsonCollection<T> {
 		const filter = this._definition.insertionHandler;
 		const itemsToAdd = filter != null && typeof filter === 'object'
 			? (filter as ICompressedJsonCollectionHandler<T>).insert(items, this)
-			: (filter == null ? items : items.filter(filter as (item: T, index: number, array: T[]) => boolean));
+			: (filter == null ? items : items.filter(filter as (item: T) => boolean));
 
 		const add = this._definition.sort != null ? this.internalOrderedAdd : this.internalAdd;
 		itemsToAdd.forEach(item => add(item));

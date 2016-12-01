@@ -1317,7 +1317,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('empty collection with basic filtertype, add one item that should not be filtered', done => {
 				const data = [];
 				const definition = {
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val < 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val < 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1343,7 +1343,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('empty collection with basic filtertype, add one item that should be filtered', done => {
 				const data = [];
 				const definition = {
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val > 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val > 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1367,7 +1367,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('initiating collection filtered with basic filtertype with data, one items should be filtered away', done => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				const definition = {
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val < 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val < 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1390,7 +1390,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('initiating collection filtered with basic filtertype with data, all items should be filtered away', done => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				const definition = {
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val > 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val > 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1413,7 +1413,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 			it('initiating collection filtered with basic filtertype with data, some items should be filtered away', done => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				const definition = {
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val > 1,
+					insertionHandler: (item: { val: number, rl: string }) => item.val > 1,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1441,7 +1441,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				const data = [];
 				const definition = {
 					sort: sort,
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val < 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val < 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1468,7 +1468,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				const data = [];
 				const definition = {
 					sort: sort,
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val > 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val > 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1496,7 +1496,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				let data = [{ val: 1, rl: 'OK' }, { val: 0, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				const definition = {
 					sort: sort,
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val < 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val < 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1521,7 +1521,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				const definition = {
 					sort: sort,
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val > 4,
+					insertionHandler: (item: { val: number, rl: string }) => item.val > 4,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
@@ -1546,7 +1546,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				let data = [{ val: 0, rl: 'OK' }, { val: 1, rl: 'OK' }, { val: 2, rl: 'OK' }, { val: 3, rl: 'OK' }, { val: 4, rl: 'OK' }];
 				const definition = {
 					sort: sort,
-					insertionHandler: (item: { val: number, rl: string }, index: number, array: { val: number, rl: string }[]) => item.val > 1,
+					insertionHandler: (item: { val: number, rl: string }) => item.val > 1,
 					properties: {
 						val: { encoding: EncodingType.DIFF, decimalDigits: 0 },
 						rl: { encoding: EncodingType.RUNLENGTH }
