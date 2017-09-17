@@ -39,7 +39,6 @@
     "url": "https://github.com/jonatannyberg/compressed-json-collection"
   },
   "dependencies": {
-    "@types/eventemitter3": "^2.0.2",
     "eventemitter3": "^2.0.3"
   }
 }
