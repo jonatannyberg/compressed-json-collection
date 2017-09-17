@@ -836,7 +836,7 @@ describe('CompressedCollection basics', () => {
 		});
 	});
 
-	describe.only('events', () => {
+	describe('events', () => {
 
 		it('added', done => {
 			const data = [{ id: 0 }, { id: 1 }];
