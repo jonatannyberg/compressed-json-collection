@@ -1,41 +1,45 @@
 {
-	"name": "compressed-json-collection",
-	"version": "0.1.0",
-	"description": "A compressed JSON collection used to manage and cache large sets of similar JSON objects for sending over HTTP(S), WebSockets or similar.",
-	"main": "lib/CompressedJsonCollection.js",
-	"typings": "lib/CompressedJsonCollection.d.ts",
-	"files": [
-		"lib/CompressedJsonCollection.js",
-		"lib/CompressedJsonCollection.d.ts"
-	],
-	"scripts": {
-		"test": "./node_modules/mocha/bin/mocha ./lib/tst/",
-		"build": "./node_modules/typescript/bin/tsc"
-	},
-	"keywords": [
-		"json",
-		"compression",
-		"array",
-		"list",
-		"collection",
-		"lossless",
-		"typescript",
-		"cache"
-	],
-	"author": {
-		"name": "Jonatan Nyberg",
-		"email": "code@jonatannyberg.com"
-	},
-	"license": "MIT",
-	"devDependencies": {
-		"@types/mocha": "^2.2.32",
-		"@types/should": "^8.1.30",
-		"mocha": "^3.1.2",
-		"should": "^11.1.1",
-		"typescript": "^2.0.8"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/jonatannyberg/compressed-json-collection"
-	}
+  "name": "compressed-json-collection",
+  "version": "0.1.0",
+  "description": "A compressed JSON collection used to manage and cache large sets of similar JSON objects for sending over HTTP(S), WebSockets or similar.",
+  "main": "lib/CompressedJsonCollection.js",
+  "typings": "lib/CompressedJsonCollection.d.ts",
+  "files": [
+    "lib/CompressedJsonCollection.js",
+    "lib/CompressedJsonCollection.d.ts"
+  ],
+  "scripts": {
+    "test": "./node_modules/mocha/bin/mocha ./lib/tst/",
+    "build": "./node_modules/typescript/bin/tsc"
+  },
+  "keywords": [
+    "json",
+    "compression",
+    "array",
+    "list",
+    "collection",
+    "lossless",
+    "typescript",
+    "cache"
+  ],
+  "author": {
+    "name": "Jonatan Nyberg",
+    "email": "code@jonatannyberg.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/mocha": "^2.2.32",
+    "@types/should": "^8.1.30",
+    "mocha": "^3.1.2",
+    "should": "^11.1.1",
+    "typescript": "^2.0.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jonatannyberg/compressed-json-collection"
+  },
+  "dependencies": {
+    "@types/eventemitter3": "^2.0.2",
+    "eventemitter3": "^2.0.3"
+  }
 }

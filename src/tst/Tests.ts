@@ -835,6 +835,60 @@ describe('CompressedCollection basics', () => {
 			done();
 		});
 	});
+
+	describe.only('events', () => {
+
+		it('added', done => {
+			const data = [{ id: 0 }, { id: 1 }];
+			const definition = { properties: { id: { encoding: EncodingType.DIFF } } }
+
+			const collection = new CompressedCollection(definition);
+
+			let count = 0;
+			collection.on('added', item => {
+				Should.deepEqual(data[count], item);
+				count++;
+
+				if (count == data.length - 1)
+					done();
+			});
+
+			collection.add(data);
+		});
+
+		it('removed', done => {
+			const data = [{ id: 0 }, { id: 1 }];
+			const definition = { properties: { id: { encoding: EncodingType.DIFF } } }
+
+			const collection = new CompressedCollection(definition, data);
+
+			collection.on('removed', item => {
+				Should.deepEqual(data[0], item);
+				done();
+			});
+
+			collection.remove(data[0]);
+		});
+
+		it('removed (by index)', done => {
+			const data = [{ id: 0 }, { id: 1 }];
+			const definition = { properties: { id: { encoding: EncodingType.DIFF } } }
+
+			const collection = new CompressedCollection(definition, data);
+
+			let count = 0;
+			collection.on('removed', item => {
+				Should.deepEqual(data[count], item);
+				count++;
+
+				if (count == data.length - 1)
+					done();
+			});
+
+			collection.removeByIndex(0, 1);
+		});
+
+	});
 });
 
 describe('CompressedCollection inserts with sort', () => {

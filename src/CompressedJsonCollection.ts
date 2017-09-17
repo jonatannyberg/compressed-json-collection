@@ -1,9 +1,9 @@
+import { EventEmitter } from 'eventemitter3';
 
 export type BaseParameter = string | number | boolean | Date;
 export type JsonParameter = BaseParameter | IJsonObject | IJsonArray;
 export interface IJsonArray extends Array<JsonParameter> { };
 export interface IJsonObject { [x: string]: JsonParameter; }
-
 
 export const enum EncodingType { RUNLENGTH, DIFF, RAW };
 export interface EncodingDefinition {
@@ -42,7 +42,7 @@ export interface ICompressedJsonCollectionDefinition<T> {
 	properties: { [key: string]: EncodingDefinition };
 }
 
-export default class CompressedJsonCollection<T> {
+export default class CompressedJsonCollection<T> extends EventEmitter {
 
 	private _items: T[] = [];
 	private _state: ICompressedJsonCollectionState;
@@ -53,6 +53,7 @@ export default class CompressedJsonCollection<T> {
 	public get compressedJson(): ICompressedJsonCollectionState { return this._state; }
 
 	constructor(definition: ICompressedJsonCollectionDefinition<T>, items: T[] = []) {
+		super();
 		this._definition = definition;
 		this._state = CompressedJsonCollection.createEmptyState(this._definition);
 		this.add(items);
@@ -71,7 +72,10 @@ export default class CompressedJsonCollection<T> {
 			: (filter == null ? items : items.filter(filter as (item: T) => boolean));
 
 		const add = this._definition.sort != null ? this.internalOrderedAdd : this.internalAdd;
-		itemsToAdd.forEach(item => add(item));
+		itemsToAdd.forEach(item => {
+			add(item);
+			this.emit('added', item);
+		});
 	}
 
 	public remove(items: T | T[]): void {
@@ -87,8 +91,8 @@ export default class CompressedJsonCollection<T> {
 		if (index > this.items.length - 1) throw new Error(`Index 'index' is out of bounds.`);
 		if (to != null && to > this.items.length - 1) throw new Error(`Index 'to' is out of bounds.`)
 
-
 		if (to == null) {
+
 			const idxToRemove = index;
 			const item = this.items[idxToRemove];
 
@@ -133,7 +137,10 @@ export default class CompressedJsonCollection<T> {
 					rlItems.splice(currRlItemIdx, 1);
 				}
 			}
+
+			this.emit('removed', item);
 		} else {
+
 			const idxToRemove = index;
 			const state = this._state;
 
@@ -216,8 +223,9 @@ export default class CompressedJsonCollection<T> {
 					}
 				}
 			}
-		}
 
+			removedItems.forEach(item => this.emit('removed', item));
+		}
 	}
 
 	public clear(): void {
@@ -316,8 +324,7 @@ export default class CompressedJsonCollection<T> {
 
 	private internalAdd = (item: T) => {
 
-		this._state.data.push(
-			CompressedJsonCollection.diffEncode(item, this._items[this._items.length - 1], this._state));
+		this._state.data.push(CompressedJsonCollection.diffEncode(item, this._items[this._items.length - 1], this._state));
 		CompressedJsonCollection.runlengthEncode(item, this._state);
 		this._items.push(item);
 	}
@@ -333,8 +340,7 @@ export default class CompressedJsonCollection<T> {
 		//
 
 		if (items.length == 0) {
-			this._state.data.push(
-				diffEncode(item, null, this._state));
+			this._state.data.push(diffEncode(item, null, this._state));
 			rlEncode(item, this._state);
 			items.push(item);
 			return;
@@ -383,7 +389,7 @@ export default class CompressedJsonCollection<T> {
 		}
 
 		//
-		// Add somewhere (...) in the collection (NOT empty collection or add to start/end of collection)
+		// Add somewhere (...) in the collection (NOT empty collection or start/end of collection)
 		// 
 
 		// Binary search for insert location
@@ -419,9 +425,8 @@ export default class CompressedJsonCollection<T> {
 				else
 					currItemCount = 1;
 
-				if (itemStartIdx + currItemCount > insertAtIdx) {
+				if (itemStartIdx + currItemCount > insertAtIdx)
 					break;
-				}
 
 				itemStartIdx += currItemCount;
 				currRlItemIdx++;
@@ -436,9 +441,9 @@ export default class CompressedJsonCollection<T> {
 			else {
 				const item = <{ value: BaseParameter, count: number }>currRlItem;
 				if (currRlItem instanceof Object) {
-					let itemA = { value: item.value, count: insertAtIdx - itemStartIdx };
-					let itemB = newVal;
-					let itemC = { value: item.value, count: item.count - itemA.count };
+					const itemA = { value: item.value, count: insertAtIdx - itemStartIdx };
+					const itemB = newVal;
+					const itemC = { value: item.value, count: item.count - itemA.count };
 
 					rlItems[currRlItemIdx] = itemA.count == 1 ? itemA.value : itemA;
 					rlItems.splice(currRlItemIdx + 1, 0, itemB, itemC.count == 1 ? itemC.value : itemC);
@@ -451,6 +456,8 @@ export default class CompressedJsonCollection<T> {
 	}
 
 	private static _dateDiff = (curr: number, prev: number, def: KeyFrameDiffEncodingDefinition): number | { key: number } => {
+
+		//return curr == null ? null : prev == null ? { key: def.factor == null ? curr : Math.round(curr * def.factor) } : (def.factor == null ? curr - prev : Math.round(curr * def.factor) - Math.round(prev * def.factor))
 
 		if (curr == null)
 			return null;
@@ -486,23 +493,24 @@ export default class CompressedJsonCollection<T> {
 
 		const itemCompressedState: JsonParameter[] = [];
 
-		const definitions = state.definitions.filter(d => d.definition.encoding === EncodingType.RAW || d.definition.encoding === EncodingType.DIFF);
-		for (var dIdx = 0; dIdx < definitions.length; dIdx++) {
-			const def = definitions[dIdx];
+		const diffDefinitions = state.definitions.filter(d => d.definition.encoding === EncodingType.RAW || d.definition.encoding === EncodingType.DIFF);
+		for (const def of diffDefinitions) {
 
-			let diff = (def.definition as KeyFrameDiffEncodingDefinition).type === 'number' ? CompressedJsonCollection._numberDiff : CompressedJsonCollection._dateDiff;
-
-			if (def.definition.encoding == EncodingType.DIFF)
+			if (def.definition.encoding == EncodingType.DIFF) {
+				const diff = (def.definition as KeyFrameDiffEncodingDefinition).type === 'number' ? CompressedJsonCollection._numberDiff : CompressedJsonCollection._dateDiff;
 				itemCompressedState.push(diff(curr[def.parameter], prev == null ? null : prev[def.parameter], def.definition as KeyFrameDiffEncodingDefinition));
-			else
+			}
+			else {
 				itemCompressedState.push(curr[def.parameter]);
+			}
 		}
 		return itemCompressedState;
 	}
 
 	private static runlengthEncode<T>(this: void, item: T, state: ICompressedJsonCollectionState) {
 
-		for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
+		const rlDefinitions = state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH);
+		for (const def of rlDefinitions) {
 			const rlItem = state.runlengthData[def.dataIndex];
 			const newVal = item[def.parameter];
 			const lastVal = rlItem[rlItem.length - 1];

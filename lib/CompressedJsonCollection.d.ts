@@ -1,3 +1,4 @@
+import { EventEmitter } from 'eventemitter3';
 export declare type BaseParameter = string | number | boolean | Date;
 export declare type JsonParameter = BaseParameter | IJsonObject | IJsonArray;
 export interface IJsonArray extends Array<JsonParameter> {
@@ -48,7 +49,7 @@ export interface ICompressedJsonCollectionDefinition<T> {
         [key: string]: EncodingDefinition;
     };
 }
-export default class CompressedJsonCollection<T> {
+export default class CompressedJsonCollection<T> extends EventEmitter {
     private _items;
     private _state;
     private _definition;
