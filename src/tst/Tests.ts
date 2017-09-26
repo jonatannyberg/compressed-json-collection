@@ -2178,7 +2178,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 	});
 });
 
-describe.only('run length remove by index tests', () => {
+describe('run length remove by index tests', () => {
 
 	it('One compressed object RL item remove everything by index', () => {
 
