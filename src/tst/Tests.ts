@@ -1,8 +1,17 @@
 
+import 'source-map-support/register';
+
 import 'mocha';
 import * as Should from 'should';
 import CompressedCollection from '../CompressedJsonCollection';
-import { EncodingType, ICompressedJsonCollectionHandler } from '../CompressedJsonCollection';
+import {
+	EncodingType,
+	KeyFrameDiffEncodingDefinition,
+	RunLengthEncodingDefinition,
+	ICompressedJsonCollectionHandler
+} from '../CompressedJsonCollection';
+
+import * as moment from 'moment';
 
 describe('CompressedCollection basics', () => {
 
@@ -622,7 +631,7 @@ describe('CompressedCollection basics', () => {
 			done();
 		});
 
-		it('sorted collection with initial items, remove one item by index with decres object count (to 1) in object rl case', done => {
+		it('sorted collection with initial items, remove one item by index with decrease object count (to 1) in object rl case', done => {
 			const item1 = { val: 1, rl: 'OK' };
 			const data = [{ val: 0, rl: 'OK' }, item1, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
 			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
@@ -647,10 +656,10 @@ describe('CompressedCollection basics', () => {
 			done();
 		});
 
-		it('sorted collection with initial items, remove two items (in sequence) by start and end index,  decres object count (to 0) in object rl case', done => {
+		it('sorted collection with initial items, remove two items (in sequence) by start and end index, decrease object count (to 0) in object rl case', done => {
 			const item0 = { val: 0, rl: 'OK' };
 			const item1 = { val: 1, rl: 'OK' };
-			const data = [item0, item1, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
+			const data = [item0, item1, { val: 5, rl: 'OK' }, { val: 6, rl: 'BAD' }, { val: 7, rl: 'OK' }];
 			const sort = (a, b): -1 | 0 | 1 => a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
 			const definition = {
 				sort: sort,
@@ -1368,7 +1377,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 	describe('basic filter', () => {
 		describe('unsorted inserting', () => {
 
-			it('empty collection with basic filtertype, add one item that should not be filtered', done => {
+			it('empty collection with basic filter type, add one item that should not be filtered', done => {
 				const data = [];
 				const definition = {
 					insertionHandler: (item: { val: number, rl: string }) => item.val < 4,
@@ -2157,8 +2166,7 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 				//console.log('Collection state: ', collection.compressedJson);
 				//console.log('Decompressed items: ', decompressedItems);
 
-				//const dataJson = JSON.stringify(data);
-				//const compressedJson = JSON.stringify(collection.compressedJson);
+				//const dataJson = JSON.JSON.JSON.stringify(collection.compressedJson);
 				//console.log('Compression ratio (char count ): ', compressedJson.length, '/', dataJson.length, '=', compressedJson.length / dataJson.length);
 
 				//Should.equal(collection.items.length, data.length, 'Collection contains wrong number of items.');
@@ -2169,3 +2177,422 @@ describe('CompressedCollection inserts with insertionHandler', () => {
 		});
 	});
 });
+
+describe.only('run length remove by index tests', () => {
+
+	it('One compressed object RL item remove everything by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), []);
+	});
+
+	it('One compressed object RL item remove one items at start', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 0);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'A' }]);
+	});
+
+	it('One compressed object RL item remove two items at start', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 1);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }]);
+	});
+
+	it('One compressed object RL item remove one items at end', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(3, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'A' }]);
+	});
+
+	it('One compressed object RL item remove two items at end', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(2, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }]);
+	});
+
+	it('One compressed object RL item remove one item in center', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(2, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'A' }]);
+	});
+
+	it('One compressed object RL item remove two items in center', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }];
+
+		let definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }]);
+	});
+
+	it('Two compressed object RL items remove everything by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), []);
+	});
+
+	it('Two compressed object RL items remove one item at start by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 0);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'B' }, { state: 'B' }]);
+	});
+
+	it('Two compressed object RL items remove one item at end by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(3, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'B' }]);
+	});
+
+	it('Two compressed object RL items remove two items at start by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 1);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'B' }, { state: 'B' }]);
+	});
+
+	it('Two compressed object RL items remove two items at end by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(2, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }]);
+	});
+
+	it('Two compressed object RL items remove two internal items by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'B' }]);
+	});
+
+	it('Three compressed object RL items remove everything by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'B' }, { state: 'C' }, { state: 'C' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 5);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), []);
+	});
+
+	it('One compressed RL item remove everything by index', () => {
+
+		type Item = { state: string }
+		const data = [{ state: 'A' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 0);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), []);
+	});
+
+
+	it('Three compressed RL items remove everything by index', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'B' }, { state: 'C' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), []);
+	});
+
+	it('Three compressed RL items remove two items at start by index', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'B' }, { state: 'C' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(0, 1);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'C' }]);
+	});
+
+	it('Three compressed RL items remove two items at end by index', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'B' }, { state: 'C' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }]);
+	});
+
+	it('Four compressed RL items remove two items at center by index (resulting in one object item being created)', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'B' }, { state: 'C' }, { state: 'A' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }]);
+	});
+
+	it('Mixed items remove by index (resulting in combining items) #1', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'B' }, { state: 'C' }, { state: 'A' }, { state: 'A' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'A' }]);
+	});
+
+	it('Mixed items remove by index (resulting in combining items) #2', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'C' }, { state: 'A' }, { state: 'A' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(2, 3);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'A' }, { state: 'A' }]);
+	});
+
+	it('Mixed items remove by index (resulting in combining items) #3', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'B' }, { state: 'C' }, { state: 'A' }, { state: 'A' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 2);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }, { state: 'A' }]);
+	});
+
+	it('Mixed items remove by index (resulting in combining items) #4', () => {
+
+		type Item = { state: string }
+		const data: Item[] = [{ state: 'A' }, { state: 'A' }, { state: 'B' }, { state: 'C' }, { state: 'A' }, { state: 'A' }];
+
+		const definition = {
+			properties: {
+				state: { encoding: EncodingType.RUNLENGTH, values: ['A', 'B', 'C'] } as RunLengthEncodingDefinition
+			}
+		};
+
+		const collection = new CompressedCollection<Item>(definition, data);
+
+		collection.removeByIndex(1, 4);
+
+		Should.deepEqual(CompressedCollection.decompress(collection.compressedJson), [{ state: 'A' }, { state: 'A' }]);
+	});
+});
+

@@ -51,6 +51,7 @@ export default class CompressedJsonCollection<T> extends EventEmitter {
 	public get definition(): ICompressedJsonCollectionDefinition<T> { return this._definition; }
 	public get items(): T[] { return this._items; }
 	public get compressedJson(): ICompressedJsonCollectionState { return this._state; }
+	public get cleanCompressedJson(): ICompressedJsonCollectionState { return { ...this._state, definitions: undefined }; };
 
 	constructor(definition: ICompressedJsonCollectionDefinition<T>, items: T[] = []) {
 		super();
@@ -86,146 +87,17 @@ export default class CompressedJsonCollection<T> extends EventEmitter {
 			.forEach(item => this.removeByIndex(item));
 	}
 
-	public removeByIndex(index: number, to?: number) {
-		if (to != null && index > to) throw new Error(`CompressedJsonCollection.removeByIndex: 'index' can not be greater than 'to'.`);
-		if (index > this.items.length - 1) throw new Error(`Index 'index' is out of bounds.`);
+	public removeByIndex(index: number): void;
+	public removeByIndex(from: number, to: number): void;
+	public removeByIndex(from: number, to?: number): void {
+		if (to != null && from > to) throw new Error(`CompressedJsonCollection.removeByIndex: 'index' can not be greater than 'to'.`);
+		if (from > this.items.length - 1) throw new Error(`Index 'index' is out of bounds.`);
 		if (to != null && to > this.items.length - 1) throw new Error(`Index 'to' is out of bounds.`)
 
-		if (to == null) {
-
-			const idxToRemove = index;
-			const item = this.items[idxToRemove];
-
-			this.items.splice(idxToRemove, 1);
-
-			const state = this._state;
-
-			state.data.splice(idxToRemove, 1);
-			if (this.items[idxToRemove] != null)
-				state.data[idxToRemove] = CompressedJsonCollection.diffEncode(this.items[idxToRemove], this.items[idxToRemove - 1], this._state);
-
-			// Update runlength encodings
-			for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
-
-				const rlItems = state.runlengthData[def.dataIndex];
-				const removedVal = item[def.parameter];
-
-				// find item affected by removal
-				let itemStartIdx = 0;
-				let currRlItemIdx = 0;
-				while (true) {
-
-					const item = rlItems[currRlItemIdx];
-					let currItemCount = item instanceof Object ? (<{ value: BaseParameter, count: number }>item).count : 1;
-
-					if (itemStartIdx + currItemCount > idxToRemove) {
-						break;
-					}
-
-					itemStartIdx += currItemCount;
-					currRlItemIdx++;
-				}
-
-				const currRlItem = rlItems[currRlItemIdx];
-
-				if (currRlItem instanceof Object && (<any>currRlItem).value === removedVal) {
-					(<{ value: BaseParameter, count: number }>currRlItem).count--;
-					if ((<{ value: BaseParameter, count: number }>currRlItem).count == 1)
-						rlItems[currRlItemIdx] = (<{ value: BaseParameter, count: number }>currRlItem).value;
-				}
-				else if (currRlItem === removedVal) {
-					rlItems.splice(currRlItemIdx, 1);
-				}
-			}
-
-			this.emit('removed', item);
-		} else {
-
-			const idxToRemove = index;
-			const state = this._state;
-
-			const removedItems = this.items.splice(idxToRemove, to - idxToRemove + 1);
-
-			state.data.splice(idxToRemove, to - idxToRemove + 1);
-			if (this.items[idxToRemove] != null)
-				state.data[idxToRemove] = CompressedJsonCollection.diffEncode(this.items[idxToRemove], this.items[idxToRemove - 1], this._state);
-
-			// Update runlength encodings
-			for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
-
-				// find first item to be affected by removal
-				const rlItems = state.runlengthData[def.dataIndex];
-				let itemStartIdx = 0;
-				let currRlItemIdx = 0;
-				while (true) {
-					const item = rlItems[currRlItemIdx];
-					let currItemCount = item instanceof Object ? (<{ value: BaseParameter, count: number }>item).count : 1;
-					if (itemStartIdx + currItemCount > idxToRemove) { break; }
-					itemStartIdx += currItemCount;
-					currRlItemIdx++;
-				}
-
-				let itemCountToRemove = removedItems.length;
-
-				const currRlItem = rlItems[currRlItemIdx];
-
-				if (typeof currRlItem === 'object') {
-
-					const item = (<{ value: BaseParameter, count: number }>currRlItem);
-
-					if (item.count - (idxToRemove - itemStartIdx) > itemCountToRemove) {
-						item.count = item.count + (idxToRemove - itemStartIdx) - itemCountToRemove;
-						if (item.count == 1)
-							rlItems[currRlItemIdx] = item.value;
-						itemCountToRemove = 0;
-					}
-					else if (item.count - (idxToRemove - itemStartIdx) == itemCountToRemove) {
-						rlItems.splice(currRlItemIdx, 1);
-						itemCountToRemove = 0;
-					}
-					else {
-						item.count = item.count - (idxToRemove - itemStartIdx);
-						itemCountToRemove -= (idxToRemove - itemStartIdx);
-						if (item.count == 1)
-							rlItems[currRlItemIdx] = item.value;
-						currRlItemIdx++;
-					}
-				}
-				else {
-					rlItems.splice(currRlItemIdx, 1);
-					itemCountToRemove--;
-				}
-
-				while (itemCountToRemove > 0) {
-
-					const currRlItem = rlItems[currRlItemIdx];
-					if (typeof currRlItem === 'object') {
-						const item = (<{ value: BaseParameter, count: number }>currRlItem);
-
-						if (item.count > itemCountToRemove) {
-							item.count -= itemCountToRemove;
-							if (item.count == 1)
-								rlItems[currRlItemIdx] = item.value;
-							itemCountToRemove = 0;
-						}
-						else if (item.count == itemCountToRemove) {
-							rlItems.splice(currRlItemIdx, 1);
-							itemCountToRemove = 0;
-						}
-						else {
-							rlItems.splice(currRlItemIdx, 1);
-							itemCountToRemove -= item.count;
-						}
-					}
-					else {
-						rlItems.splice(currRlItemIdx, 1);
-						itemCountToRemove--;
-					}
-				}
-			}
-
-			removedItems.forEach(item => this.emit('removed', item));
-		}
+		if (to == null)
+			this.internalRemoveByIndex(from);
+		else
+			this.internalRemoveIndexRange(from, to);
 	}
 
 	public clear(): void {
@@ -321,6 +193,297 @@ export default class CompressedJsonCollection<T> extends EventEmitter {
 		else
 			return items.map(item => transform(state, item));
 	}
+
+	private internalRemoveByIndex(index: number) {
+		const idxToRemove = index;
+		const item = this.items[idxToRemove];
+
+		this.items.splice(idxToRemove, 1);
+
+		const state = this._state;
+
+		state.data.splice(idxToRemove, 1);
+		if (this.items[idxToRemove] != null)
+			state.data[idxToRemove] = CompressedJsonCollection.diffEncode(this.items[idxToRemove], this.items[idxToRemove - 1], this._state);
+
+		// Update runlength encodings
+		for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
+
+			const rlItems = state.runlengthData[def.dataIndex];
+			const removedVal = item[def.parameter];
+
+			// find item affected by removal
+			let itemStartIdx = 0;
+			let currRlItemIdx = 0;
+			while (true) {
+
+				const item = rlItems[currRlItemIdx];
+				let currItemCount = item instanceof Object ? (<{ value: BaseParameter, count: number }>item).count : 1;
+
+				if (itemStartIdx + currItemCount > idxToRemove) {
+					break;
+				}
+
+				itemStartIdx += currItemCount;
+				currRlItemIdx++;
+			}
+
+			const currRlItem = rlItems[currRlItemIdx];
+
+			if (currRlItem instanceof Object && (<any>currRlItem).value === removedVal) {
+				(<{ value: BaseParameter, count: number }>currRlItem).count--;
+				if ((<{ value: BaseParameter, count: number }>currRlItem).count == 1)
+					rlItems[currRlItemIdx] = (<{ value: BaseParameter, count: number }>currRlItem).value;
+			}
+			else if (currRlItem === removedVal) {
+				rlItems.splice(currRlItemIdx, 1);
+			}
+		}
+
+		this.emit('removed', item);
+	}
+
+	// private internalRemoveIndexRange(from: number, to: number) {
+
+	// 	const idxToRemove = from;
+	// 	const state = this._state;
+
+	// 	const removedItems = this.items.splice(idxToRemove, to - idxToRemove + 1);
+
+	// 	state.data.splice(idxToRemove, to - idxToRemove + 1);
+	// 	if (this.items[idxToRemove] != null)
+	// 		state.data[idxToRemove] = CompressedJsonCollection.diffEncode(this.items[idxToRemove], this.items[idxToRemove - 1], this._state);
+
+	// 	// Update runlength encodings
+	// 	for (const def of state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH)) {
+
+	// 		// find first item to be affected by removal
+	// 		const rlItems = state.runlengthData[def.dataIndex];
+	// 		let itemStartIdx = 0;
+	// 		let currRlItemIdx = 0;
+	// 		while (true) {
+	// 			const item = rlItems[currRlItemIdx];
+	// 			let currItemCount = item instanceof Object ? (<{ value: BaseParameter, count: number }>item).count : 1;
+	// 			if (itemStartIdx + currItemCount > idxToRemove) { break; }
+	// 			itemStartIdx += currItemCount;
+	// 			currRlItemIdx++;
+	// 		}
+
+	// 		let itemCountToRemove = removedItems.length;
+	// 		const currRlItem = rlItems[currRlItemIdx];
+
+	// 		if (typeof currRlItem === 'object') {
+
+	// 			const item = (<{ value: BaseParameter, count: number }>currRlItem);
+
+
+	// 			console.log('Info', item.count - (idxToRemove - itemStartIdx), itemCountToRemove);
+	// 			if (item.count - (idxToRemove - itemStartIdx) >= itemCountToRemove) {
+	// 				console.log('here')
+	// 				item.count = item.count + (idxToRemove - itemStartIdx) - itemCountToRemove;
+	// 				if (item.count == 1)
+	// 					rlItems[currRlItemIdx] = item.value;
+	// 				else if (item.count == 0)
+	// 					rlItems.splice(currRlItemIdx, 1);
+	// 				itemCountToRemove = 0;
+	// 			}
+	// 			// else if (item.count - (idxToRemove - itemStartIdx) == itemCountToRemove) {
+	// 			// 	console.log('Here');
+	// 			// 	console.log(rlItems)
+
+	// 			// 	rlItems.splice(currRlItemIdx, 1);
+
+	// 			// 	console.log(rlItems)
+	// 			// 	itemCountToRemove = 0;
+	// 			// }
+	// 			else {
+	// 				item.count = item.count - (idxToRemove - itemStartIdx);
+	// 				itemCountToRemove -= (idxToRemove - itemStartIdx);
+	// 				if (item.count == 1)
+	// 					rlItems[currRlItemIdx] = item.value;
+	// 				currRlItemIdx++;
+	// 			}
+	// 		}
+	// 		else {
+	// 			rlItems.splice(currRlItemIdx, 1);
+	// 			itemCountToRemove--;
+	// 		}
+
+	// 		while (itemCountToRemove > 0) {
+
+	// 			const currRlItem = rlItems[currRlItemIdx];
+	// 			if (typeof currRlItem === 'object') {
+	// 				const item = (<{ value: BaseParameter, count: number }>currRlItem);
+
+	// 				if (item.count > itemCountToRemove) {
+	// 					item.count -= itemCountToRemove;
+	// 					if (item.count == 1)
+	// 						rlItems[currRlItemIdx] = item.value;
+	// 					itemCountToRemove = 0;
+	// 				}
+	// 				else if (item.count == itemCountToRemove) {
+	// 					rlItems.splice(currRlItemIdx, 1);
+	// 					itemCountToRemove = 0;
+	// 				}
+	// 				else {
+	// 					rlItems.splice(currRlItemIdx, 1);
+	// 					itemCountToRemove -= item.count;
+	// 				}
+	// 			}
+	// 			else {
+	// 				rlItems.splice(currRlItemIdx, 1);
+	// 				itemCountToRemove--;
+	// 			}
+	// 		}
+	// 	}
+
+	// 	removedItems.forEach(item => this.emit('removed', item));
+	// }
+
+	private internalRemoveIndexRange(from: number, to: number) {
+
+		const state = this._state;
+
+		const removedItems = this.items.splice(from, to - from + 1);
+
+		state.data.splice(from, to - from + 1);
+		if (this.items[from] != null)
+			state.data[from] = CompressedJsonCollection.diffEncode(this.items[from], this.items[from - 1], this._state);
+
+		// Update runlength encodings
+		const rlDefs = state.definitions.filter(d => d.definition.encoding === EncodingType.RUNLENGTH);
+		for (const def of rlDefs) {
+
+			const rlItems = state.runlengthData[def.dataIndex];
+
+			// find first item to be affected by removal
+			let accumulatedIndex = 0;
+			let firstRLItemIdx = 0;
+			let firstItemRemoveCount = 0;
+			while (true) {
+				const item = rlItems[firstRLItemIdx] as { count: number };
+				const currItemCount = item instanceof Object ? item.count : 1;
+				if (accumulatedIndex + currItemCount > from) {
+
+					// if from and to is contained in the same rl item
+					if (accumulatedIndex + currItemCount > to) {
+						firstItemRemoveCount = to - from + 1;
+					} else {
+						firstItemRemoveCount = currItemCount - (from - accumulatedIndex);
+					}
+
+					break;
+				}
+				accumulatedIndex += currItemCount;
+				firstRLItemIdx++;
+			}
+
+			// find last item to be affected by removal
+			let lastRLItemIdx = firstRLItemIdx;
+			let lastItemRemoveCount = 0;
+			while (true) {
+				const item = rlItems[lastRLItemIdx] as { count: number };
+				const currItemCount = item instanceof Object ? item.count : 1;
+				if (accumulatedIndex + currItemCount > to) {
+
+					lastItemRemoveCount = to - accumulatedIndex + 1;
+					break;
+				}
+				accumulatedIndex += currItemCount;
+				lastRLItemIdx++;
+			}
+
+			//console.log(`Affected RL items: ${firstRLItemIdx} (rm: ${firstItemRemoveCount}) to ${lastRLItemIdx} (rm: ${lastItemRemoveCount}) `);
+
+			// Remove accumulated RL items that are completely removed
+			if (lastRLItemIdx - firstRLItemIdx > 1) {
+				rlItems.splice(firstRLItemIdx + 1, lastRLItemIdx - firstRLItemIdx - 1);
+				lastRLItemIdx = firstRLItemIdx + 1;
+			}
+
+			let firstItem = rlItems[firstRLItemIdx] as { count: number, value: string };
+			let lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+
+			// update first affected item
+			if (typeof firstItem === 'object')
+				firstItem.count -= firstItemRemoveCount;
+			else {
+				rlItems.splice(firstRLItemIdx, 1);
+				firstRLItemIdx--;
+				lastRLItemIdx--;
+				firstItem = rlItems[firstRLItemIdx] as { count: number, value: string };
+				lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+			}
+			// update last affected item (if it is not the same item as the first one)
+			if (firstRLItemIdx !== lastRLItemIdx) {
+				if (typeof lastItem === 'object')
+					lastItem.count -= lastItemRemoveCount;
+				else {
+					rlItems.splice(lastRLItemIdx, 1);
+					lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+				}
+			}
+
+			// remove first affected item if its count is zero
+			if (typeof firstItem === 'object' && firstItem.count == 0) {
+				rlItems.splice(firstRLItemIdx, 1);
+				firstRLItemIdx--;
+				lastRLItemIdx--;
+				firstItem = rlItems[firstRLItemIdx] as { count: number, value: string };
+				lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+			}
+
+			// remove last affected item if its count is zero
+			if (typeof lastItem === 'object' && lastItem.count != null && lastItem.count == 0) {
+				rlItems.splice(lastRLItemIdx, 1);
+			}
+
+			// convert object with count one to value only
+			firstItem != null && firstItem.count == 1 && (rlItems[firstRLItemIdx] = firstItem.value);
+			lastItem != null && lastItem.count == 1 && (rlItems[lastRLItemIdx] = lastItem.value);
+			firstItem = rlItems[firstRLItemIdx] as { count: number, value: string };
+			lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+
+			// If we have both firs and last items they are now adjacent and could possibly contain the same type of value. 
+			// If they do we combine them to one object
+			if (firstItem != null && lastItem != null && lastRLItemIdx !== firstRLItemIdx) {
+				if (typeof firstItem === 'object') {
+
+					if (typeof lastItem === 'object' && firstItem.value === lastItem.value) {
+						firstItem.count += lastItem.count;
+						rlItems.splice(lastRLItemIdx, 1);
+						lastRLItemIdx--;
+						lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+					}
+					else if (<any>lastItem === firstItem.value) {
+						firstItem.count += 1;
+						rlItems.splice(lastRLItemIdx, 1);
+						lastRLItemIdx--;
+						lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+					}
+
+				} else {
+					if (typeof lastItem === 'object' && <any>firstItem === lastItem.value) {
+						lastItem.count += 1;
+						rlItems.splice(firstRLItemIdx, 1);
+						firstRLItemIdx--;
+						lastRLItemIdx--;
+						firstItem = rlItems[firstRLItemIdx] as { count: number, value: string };
+						lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+					}
+					else if (<any>lastItem === <any>firstItem) {
+						rlItems[firstRLItemIdx] = { count: 2, value: firstItem };
+						rlItems.splice(lastRLItemIdx, 1);
+						lastRLItemIdx--;
+						lastItem = rlItems[lastRLItemIdx] as { count: number, value: string };
+					}
+				}
+			}
+		}
+
+		removedItems.forEach(item => this.emit('removed', item));
+	}
+
 
 	private internalAdd = (item: T) => {
 
